@@ -10,6 +10,7 @@ broker_port = 1884  # +1 Default MQTT port
 #these are abstract and should be set by the implementing script
 msg_callback = None
 dconn_callback = None
+
 topic = "testTopic/test"
 
 # Callback function when connection is established
@@ -23,16 +24,17 @@ def on_disconnect(client, userdata, rc):
     if rc != 0:
         print("Disconnected from broker "+str(rc))
         global dconn_callback
-        if dconn_callback != None:
+        if dconn_callback is not None:
             dconn_callback()
         
 # Callback function when a message is received
 def on_message(client, userdata, msg):
     message = msg.payload.decode()
-    print("Received message: "+message)
+    topic = msg.topic
+    print("Received message: "+message+" on topic "+topic)
     global msg_callback
     if msg_callback != None:
-        msg_callback(message)
+        msg_callback(msg.topic, message)
         
 # Set up callback functions
 client.on_connect = on_connect
@@ -44,28 +46,24 @@ def connect():
     global client
     client.username_pw_set("pibot", "pibot1031")
     client.connect(broker_address, broker_port, 60)
-    time.sleep(3)
+    client.loop_start()
     
-def subscribe():
+def subscribe(topics):
     # Start the MQTT loop in the background
-    global client, topic
-    client.loop_start()
-    client.subscribe(topic)
+    global client
+    for topic in topics:
+        print("subscribing to " + topic)
+        client.subscribe(topic)
 
-def publish(msg):
-    global client, topic
-    client.loop_start()
+def publish(topic, msg):
+    global client
+    print("publishing " + msg + " on " + topic)
     client.publish(topic, msg)
-    time.sleep(0.5)
-    client.loop_stop()
+    
     
 def kill():
     # Disconnect from the broker and stop the loop
     global client
     client.loop_stop()
     client.disconnect()
-
-def reset():
-    kill()
-    time.sleep(2)
-    connect()
+    client = None
